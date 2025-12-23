@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String        @id @default(uuid())
+  email             String?       @unique
+  name              String?
+  image             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  projects          Project[]
+}
+
+model Account {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id])
+
+  provider          String
+  providerAccountId String?
+  passwordHash      String?
+
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+
+  createdAt         DateTime      @default(now())
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id                String        @id @default(uuid())
+  userId            String
+  expiresAt         DateTime
+  userAgent         String?
+  ipAddress         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User          @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id                String        @id @default(uuid())
+  userId            String
+  domain            String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User          @relation(fields: [userId], references: [id])
+  keywords          Keyword[]
+}
+
+model Keyword {
+  id                String        @id @default(uuid())
+  projectId         String
+  keyword           String        Float?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  project           Project       @relation(fields: [projectId], references: [id])
+  serpResults       SerpResult[]
+  rankReports       RankReport[]
+  backlinks         Backlink[]
+}
+
+model SerpResult {
+  id                String        @id @default(uuid())
+  keywordId         String
+  position          Int
+  url               String
+  title             String
+  snippet           String
+  fetchedAt         DateTime      @default(now())
+
+  keyword           Keyword       @relation(fields: [keywordId], references: [id])
+}
+
+model RankReport {
+  id                String        @id @default(uuid())
+  keywordId         String
+  position          Int
+  fetchedAt         DateTime      @default(now())
+
+  keyword           Keyword       @relation(fields: [keywordId], references: [id])
+}
+
+model Backlink {
+  id                String         @id @default(uuid())
+  keywordId         String
+  sourceUrl         String
+  targetUrl         String
+  domainAuth        Float?
+  createdAt         DateTime       @default(now())
+  fetchedAt         DateTime       @default(now())
+
+  keyword           Keyword        @relation(fields: [keywordId], references: [id])
+}
