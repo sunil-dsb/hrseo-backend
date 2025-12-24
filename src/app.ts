@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors, { type CorsOptions } from "cors";
+import cookieParser from "cookie-parser";
 import "dotenv/config";
 import routes from "./routes/index";
 import { sendSuccess } from "./utils/response";
@@ -27,6 +28,7 @@ const corsOptions: CorsOptions = {
 
 export const app: Express = express();
 
+app.use(cookieParser());
 app.use(cors(corsOptions));
 app.use(express.json());
 
