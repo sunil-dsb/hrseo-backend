@@ -9,6 +9,7 @@ import {
 import { createToken } from "@/utils/tokenUtils";
 import { v4 as uuidv4 } from "uuid";
 import { prismaClient } from "@/lib/prismaClient";
+import { encryptData } from "@/utils/encryptDecryptPayload";
 
 const checkUser = async (req: Request) => {
   const userId = req?.userId;
@@ -19,6 +20,38 @@ const checkUser = async (req: Request) => {
   const checkUser = await prismaClient?.user?.findFirst({
     where: {
       id: userId,
+    },
+    select: {
+      id: true,
+      email: true,
+      emailVerified: true,
+      name: true,
+      avatarUrl: true,
+      status: true,
+      accounts: {
+        where: {
+          provider: "EMAIL",
+        },
+      },
+      role: {
+        select: {
+          name: true,
+          permissions: {
+            select: {
+              canReadList: true,
+              canReadSingle: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+              module: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
   if (!checkUser) {
@@ -46,14 +79,10 @@ const checkUser = async (req: Request) => {
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, name, avatarUrl, provider, password } = req.body;
+    const { email, name, avatarUrl, password } = req.body;
 
-    if (!name || !email || !password || !provider) {
-      return sendError(
-        res,
-        404,
-        "Name, email, password and provider are required"
-      );
+    if (!name || !email || !password) {
+      return sendError(res, 404, "Name, email and password are required");
     }
 
     const hashedPassword = await hashPassword(password);
@@ -69,6 +98,16 @@ export const register = async (req: Request, res: Response) => {
     if (checkUser) {
       return sendError(res, 409, "User already exist");
     }
+
+    const role = await prismaClient?.role?.findFirst({
+      where: {
+        name: "user",
+      },
+    });
+    if (!role) {
+      return sendError(res, 404, "Role not found");
+    }
+
     const uniqueUserId = uuidv4();
     const response = await prismaClient?.user?.create({
       data: {
@@ -76,6 +115,7 @@ export const register = async (req: Request, res: Response) => {
         email,
         name,
         avatarUrl,
+        roleId: role?.id,
 
         accounts: {
           create: {
@@ -121,6 +161,25 @@ export const login = async (req: Request, res: Response) => {
         accounts: {
           where: {
             provider: "EMAIL",
+          },
+        },
+        role: {
+          select: {
+            name: true,
+            permissions: {
+              select: {
+                canReadList: true,
+                canReadSingle: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+                module: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -172,7 +231,6 @@ export const login = async (req: Request, res: Response) => {
       process.env.REFRESH_TOKEN_EXPIRY || "30d"
     );
 
-    const accessTokenExpiry = new Date(Date.now() + accessExpiryMs);
     const refreshTokenExpiry = new Date(Date.now() + refreshExpiryMs);
 
     await prismaClient?.session?.create({
@@ -183,6 +241,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
 
+    const encryptedUserData = await encryptData(checkUser);
     res.cookie("access_token", access_token?.data, {
       httpOnly: true,
       secure: true,
@@ -197,15 +256,71 @@ export const login = async (req: Request, res: Response) => {
       maxAge: refreshExpiryMs,
       path: "/",
     });
+    res.cookie("user_data", encryptedUserData, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: refreshExpiryMs,
+      path: "/",
+    });
 
     const responsePayload = {
       userId: checkUser?.id,
       name: checkUser?.name || "",
       email: checkUser?.email,
       avatarUrl: checkUser?.avatarUrl,
+      access_token: access_token?.data,
     };
 
     return sendSuccess(res, responsePayload, "Successfully logged in");
+  } catch (error) {
+    return sendError(
+      res,
+      400,
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const { success: checkUserSuccess, error: checkUserError } =
+      await checkUser(req);
+    if (!checkUserSuccess) {
+      return sendError(res, 400, checkUserError || "Unknown error");
+    }
+
+    const refreshToken = req.cookies.refresh_token;
+    if (!refreshToken) {
+      return sendError(res, 401, "Unauthorized");
+    }
+
+    await prismaClient?.session?.deleteMany({
+      where: {
+        token: refreshToken,
+      },
+    });
+
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/",
+    });
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/",
+    });
+    res.clearCookie("user_data", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/",
+    });
+
+    return sendSuccess(res, null, "User logged out successfully");
   } catch (error) {
     return sendError(
       res,
@@ -226,6 +341,11 @@ export const renewToken = async (req: Request, res: Response) => {
       return sendError(res, 400, checkUserError || "Unknown error");
     }
 
+    const refreshToken = req.cookies.refresh_token;
+    if (!refreshToken) {
+      return sendError(res, 401, "Unauthorized");
+    }
+
     const payload = {
       userId: checkUserData?.id,
       email: checkUserData?.email,
@@ -239,9 +359,13 @@ export const renewToken = async (req: Request, res: Response) => {
 
     const checkSession = await prismaClient?.session?.findFirst({
       where: {
-        token: refresh_token?.data,
+        token: refreshToken,
       },
     });
+
+    if (!checkSession) {
+      return sendError(res, 401, "Session not found");
+    }
 
     const accessExpiryMs = parseTimeString(
       process.env.ACCESS_TOKEN_EXPIRY || "1h"
@@ -250,7 +374,6 @@ export const renewToken = async (req: Request, res: Response) => {
       process.env.REFRESH_TOKEN_EXPIRY || "30d"
     );
 
-    const accessTokenExpiry = new Date(Date.now() + accessExpiryMs);
     const refreshTokenExpiry = new Date(Date.now() + refreshExpiryMs);
 
     await prismaClient?.session?.update({
@@ -258,11 +381,12 @@ export const renewToken = async (req: Request, res: Response) => {
         id: checkSession?.id,
       },
       data: {
-        token: refresh_token?.data || "",
+        token: refresh_token.data,
         expiresAt: refreshTokenExpiry,
       },
     });
 
+    const encryptedUserData = await encryptData(checkUserData);
     res.cookie("access_token", access_token?.data, {
       httpOnly: true,
       secure: true,
@@ -277,8 +401,41 @@ export const renewToken = async (req: Request, res: Response) => {
       maxAge: refreshExpiryMs,
       path: "/",
     });
+    res.cookie("user_data", encryptedUserData, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: refreshExpiryMs,
+      path: "/",
+    });
 
     return sendSuccess(res, null, "Tokens renewed successfully");
+  } catch (error) {
+    return sendError(
+      res,
+      400,
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+};
+
+export const getAllSessions = async (req: Request, res: Response) => {
+  try {
+    const {
+      success: checkUserSuccess,
+      data: checkUserData,
+      error: checkUserError,
+    } = await checkUser(req);
+    if (!checkUserSuccess) {
+      return sendError(res, 400, checkUserError || "Unknown error");
+    }
+    const sessions = await prismaClient?.session?.findMany({
+      where: {
+        userId: checkUserData?.id,
+      },
+    });
+
+    return sendSuccess(res, sessions, "ok");
   } catch (error) {
     return sendError(
       res,

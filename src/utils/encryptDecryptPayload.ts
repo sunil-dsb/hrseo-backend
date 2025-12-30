@@ -12,7 +12,7 @@ const secretKey = Uint8Array.from(Buffer.from(secretKeyBase64, "base64"));
 
 export type JSONValue = string | number | boolean | null | { [key: string]: JSONValue } | JSONValue[];
 
-export async function encryptData<T extends JSONValue>(data: T): Promise<string> {
+export async function encryptData<T>(data: T): Promise<string> {
   const encoder = new TextEncoder();
   const jwe = await new CompactEncrypt(encoder.encode(JSON.stringify(data)))
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
@@ -20,7 +20,7 @@ export async function encryptData<T extends JSONValue>(data: T): Promise<string>
   return jwe;
 }
 
-export async function decryptData<T extends JSONValue>(jwe: string): Promise<T> {
+export async function decryptData<T>(jwe: string): Promise<T> {
   const { plaintext } = await compactDecrypt(jwe, secretKey);
   const decoder = new TextDecoder();
   return JSON.parse(decoder.decode(plaintext)) as T;

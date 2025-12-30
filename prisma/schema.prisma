@@ -14,22 +14,24 @@ datasource db {
 }
 
 model User {
-  id                    String          @id @default(cuid())
-  email                 String?         @unique
-  emailVerified         Boolean         @default(false)
+  id                    String                @id @default(cuid())
+  email                 String?               @unique
+  emailVerified         Boolean               @default(false)
   name                  String?
   avatarUrl             String?
 
-  locale                String          @default("en")
-  theme                 String          @default("system")
+  roleId                String
+  locale                String                @default("en")
+  theme                 String                @default("system")
 
-  credits               Int             @default(0)
+  credits               Int                   @default(0)
 
-  status                UserStatus      @default(ACTIVE)
+  status                UserStatus            @default(ACTIVE)
 
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
+  role                  Role?                 @relation(fields: [roleId], references: [id])
   accounts              Account[]
   sessions              Session[]
   projects              Project[]
@@ -133,7 +135,7 @@ model UsageLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("usage_logs")
+  @@map("usage_log")
 }
 
 model CreditTransaction {
@@ -148,6 +150,96 @@ model CreditTransaction {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("credit_transactions")
+  @@map("credit_transaction")
 }
 
+// ---------------- RBAC ----------------
+
+model Role {
+  id                String        @id @default(cuid())
+  name              String        @unique
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  permissions       Permission[]
+  user              User[]
+
+  @@map("role")
+}
+
+model Module {
+  id              String        @id @default(cuid())
+  name            String        @unique
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  permissions     Permission[]
+
+  @@map("module")
+}
+
+model Permission {
+  id            String    @id @default(cuid())
+  roleId        String
+  moduleId      String
+  canReadList   Boolean   @default(false)
+  canReadSingle Boolean   @default(false)
+  canCreate     Boolean   @default(false)
+  canUpdate     Boolean   @default(false)
+  canDelete     Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  role          Role?     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module        Module?   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@map("permission")
+}
+
+
+// ------------ PLANS -------------
+
+model Plan {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  description     String?
+  price           Decimal       @db.Decimal(10, 2)
+  currency        PlanCurrency
+  isActive        Boolean       @default(true)
+
+  features        Json
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("plan")
+}
+
+enum PlanCurrency {
+  // English-speaking regions
+  USD // United States Dollar
+  GBP // British Pound
+  CAD // Canadian Dollar
+  AUD // Australian Dollar
+
+  // Europe
+  EUR // Euro
+  CHF // Swiss Franc
+
+  // Spanish-speaking countries
+  MXN // Mexican Peso
+  ARS // Argentine Peso
+  COP // Colombian Peso
+  CLP // Chilean Peso
+  BRL // Brazilian Real
+
+  // Asia
+  INR // Indian Rupee
+  JPY // Japanese Yen
+  CNY // Chinese Yuan
+  SGD // Singapore Dollar
+  NZD // New Zealand Dollar
+}
