@@ -2,44 +2,34 @@ import { type Request, type Response } from "express";
 import { prismaClient } from "@/lib/prismaClient";
 import { sendError, sendSuccess } from "@/utils/response";
 
-export const getSession = async (req: Request, res: Response) => {
+export const getAllPlans = async (req: Request, res: Response) => {
   try {
-    const userId = req?.userId;
-    if (!userId) {
-      return sendError(res, 401, "Unauthorized request");
+    const plansData = await prismaClient?.plan?.findMany();
+
+    return sendSuccess(res, plansData, "ok");
+  } catch (error) {
+    return sendError(
+      res,
+      400,
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+};
+
+export const getSinglePlan = async (req: Request, res: Response) => {
+  try {
+    const { planId } = req?.params;
+    if (!planId) {
+      return sendError(res, 400, "planId is required");
     }
 
-    const userData = await prismaClient?.user?.findFirst({
+    const planData = await prismaClient?.plan?.findFirst({
       where: {
-        id: userId,
-      },
-      select: {
-        role: {
-          select: {
-            name: true,
-            permissions: {
-              select: {
-                canReadList: true,
-                canReadSingle: true,
-                canCreate: true,
-                canUpdate: true,
-                canDelete: true,
-                module: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+        id: planId,
       },
     });
 
-    if (!userData) {
-      return sendError(res, 404, "User not found");
-    }
-    return sendSuccess(res, userData, "ok");
+    return sendSuccess(res, planData, "ok");
   } catch (error) {
     return sendError(
       res,

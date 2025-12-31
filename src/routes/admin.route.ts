@@ -1,10 +1,15 @@
-import { getSession } from "@/controllers/user.controller";
+import { getAllUsers } from "@/controllers/admin.controller";
 import { checkAuthentication } from "@/middlewares/checkAuthentication";
 import { checkAuthorization } from "@/middlewares/checkAuthorization";
 import { Router } from "express";
 
 const router: Router = Router();
 
-router.get("/get-user-session", checkAuthentication, getSession);
+router.get(
+  "/user/get-all-users",
+  checkAuthentication,
+  checkAuthorization({ module: "User_management", action: "canReadList" }),
+  getAllUsers
+);
 
 export default router;

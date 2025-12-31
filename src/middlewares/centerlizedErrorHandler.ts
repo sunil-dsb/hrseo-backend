@@ -7,7 +7,7 @@ export function centerlizedErrorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  console.error("🔥 Error:", err);
+  console.error("ERROR: ", err);
 
   const statusCode = err.statusCode || 500;
   const message =

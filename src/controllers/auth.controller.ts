@@ -10,6 +10,47 @@ import { createToken } from "@/utils/tokenUtils";
 import { v4 as uuidv4 } from "uuid";
 import { prismaClient } from "@/lib/prismaClient";
 import { encryptData } from "@/utils/encryptDecryptPayload";
+import type {
+  UserGetPayload,
+  UserSelect,
+} from "prisma/generated/prisma/models";
+
+const userSelect = {
+  id: true,
+  email: true,
+  emailVerified: true,
+  name: true,
+  avatarUrl: true,
+  status: true,
+  accounts: {
+    where: {
+      provider: "EMAIL",
+    },
+  },
+  role: {
+    select: {
+      name: true,
+      permissions: {
+        select: {
+          canReadList: true,
+          canReadSingle: true,
+          canCreate: true,
+          canUpdate: true,
+          canDelete: true,
+          module: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies UserSelect;
+
+export type CheckUserType = UserGetPayload<{
+  select: typeof userSelect;
+}>;
 
 const checkUser = async (req: Request) => {
   const userId = req?.userId;
@@ -151,38 +192,7 @@ export const login = async (req: Request, res: Response) => {
       where: {
         email,
       },
-      select: {
-        id: true,
-        email: true,
-        emailVerified: true,
-        name: true,
-        avatarUrl: true,
-        status: true,
-        accounts: {
-          where: {
-            provider: "EMAIL",
-          },
-        },
-        role: {
-          select: {
-            name: true,
-            permissions: {
-              select: {
-                canReadList: true,
-                canReadSingle: true,
-                canCreate: true,
-                canUpdate: true,
-                canDelete: true,
-                module: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      select: userSelect,
     });
 
     if (!checkUser) {
