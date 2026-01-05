@@ -1,9 +1,4 @@
-import {
-  login,
-  logout,
-  register,
-  renewToken,
-} from "@/controllers/auth.controller";
+import { login, logout, register, renewToken } from "@/controllers/auth.controller";
 import { checkAuthenticationRefresh } from "@/middlewares/checkAuthentication";
 import { Router } from "express";
 

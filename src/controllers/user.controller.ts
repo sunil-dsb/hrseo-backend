@@ -41,10 +41,6 @@ export const getSession = async (req: Request, res: Response) => {
     }
     return sendSuccess(res, userData, "ok");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };

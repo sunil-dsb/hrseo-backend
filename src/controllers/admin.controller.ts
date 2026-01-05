@@ -8,10 +8,6 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
     return sendSuccess(res, allUsers, "ok");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };

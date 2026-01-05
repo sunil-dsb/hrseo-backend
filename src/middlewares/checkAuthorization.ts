@@ -10,12 +10,7 @@ export const checkAuthorization =
     action,
   }: {
     module: string;
-    action:
-      | "canReadList"
-      | "canReadSingle"
-      | "canCreate"
-      | "canUpdate"
-      | "canDelete";
+    action: "canReadList" | "canReadSingle" | "canCreate" | "canUpdate" | "canDelete";
   }) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -60,8 +55,7 @@ export const checkAuthorization =
 
         if (
           checkRole?.permissions.some(
-            (permission) =>
-              permission.module?.name === module && permission[action] === true
+            (permission) => permission.module?.name === module && permission[action] === true
           )
         ) {
           next();

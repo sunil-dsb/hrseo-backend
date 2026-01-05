@@ -8,11 +8,7 @@ export const getAllPlans = async (req: Request, res: Response) => {
 
     return sendSuccess(res, plansData, "ok");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
@@ -31,10 +27,6 @@ export const getSinglePlan = async (req: Request, res: Response) => {
 
     return sendSuccess(res, planData, "ok");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };

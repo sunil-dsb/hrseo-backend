@@ -1,42 +1,31 @@
 import { jwtVerify, SignJWT } from "jose";
 
 interface JWTPayload {
-  [claim: string]:
-    | string
-    | number
-    | boolean
-    | undefined
-    | null
-    | JWTPayload
-    | JWTPayload[];
+  [claim: string]: string | number | boolean | undefined | null | JWTPayload | JWTPayload[];
 }
 
 // Function to create a signed token
 export async function createToken(
   payload: JWTPayload,
-  type:
-    | "access_token"
-    | "refresh_token"
-    | "password_reset"
-    | "email_verification"
+  type: "access_token" | "refresh_token" | "password_reset" | "email_verification"
 ) {
   try {
     const expiresInSeconds =
       type === "access_token"
         ? process.env.ACCESS_TOKEN_EXPIRY
         : type === "refresh_token"
-        ? process.env.REFRESH_TOKEN_EXPIRY
-        : type === "password_reset"
-        ? process.env.PASSWORD_RESET_TOKEN_EXPIRY
-        : process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY;
+          ? process.env.REFRESH_TOKEN_EXPIRY
+          : type === "password_reset"
+            ? process.env.PASSWORD_RESET_TOKEN_EXPIRY
+            : process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY;
     const secretKey =
       type === "access_token"
         ? process.env.ACCESS_TOKEN_SECRET
         : type === "refresh_token"
-        ? process.env.REFRESH_TOKEN_SECRET
-        : type === "password_reset"
-        ? process.env.PASSWORD_RESET_TOKEN_SECRET
-        : process.env.EMAIL_VERIFICATION_TOKEN_SECRET;
+          ? process.env.REFRESH_TOKEN_SECRET
+          : type === "password_reset"
+            ? process.env.PASSWORD_RESET_TOKEN_SECRET
+            : process.env.EMAIL_VERIFICATION_TOKEN_SECRET;
     if (!expiresInSeconds || !secretKey) {
       return { success: false, error: "Token or secret key not found" };
     }
@@ -65,21 +54,17 @@ interface AccessTokenPayload {
 // Function to verify token
 export async function verifyToken<T extends AccessTokenPayload>(
   token: string,
-  type:
-    | "access_token"
-    | "refresh_token"
-    | "password_reset"
-    | "email_verification"
+  type: "access_token" | "refresh_token" | "password_reset" | "email_verification"
 ): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
     const secretKey =
       type === "access_token"
         ? process.env.ACCESS_TOKEN_SECRET
         : type === "refresh_token"
-        ? process.env.REFRESH_TOKEN_SECRET
-        : type === "password_reset"
-        ? process.env.PASSWORD_RESET_TOKEN_SECRET
-        : process.env.EMAIL_VERIFICATION_TOKEN_SECRET;
+          ? process.env.REFRESH_TOKEN_SECRET
+          : type === "password_reset"
+            ? process.env.PASSWORD_RESET_TOKEN_SECRET
+            : process.env.EMAIL_VERIFICATION_TOKEN_SECRET;
     if (!secretKey) {
       return { success: false, error: "Secret key not found" };
     }

@@ -7,11 +7,7 @@ interface ApiResponse<T> {
   data: string | null;
 }
 
-export async function sendSuccess<T>(
-  res: Response,
-  data?: T,
-  message?: string
-) {
+export async function sendSuccess<T>(res: Response, data?: T, message?: string) {
   let encryptedData;
   if (data) {
     encryptedData = await encryptData(data);

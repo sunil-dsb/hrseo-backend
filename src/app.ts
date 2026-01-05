@@ -5,6 +5,8 @@ import "dotenv/config";
 import routes from "./routes/index";
 import { sendSuccess } from "./utils/response";
 import { centerlizedErrorHandler } from "./middlewares/centerlizedErrorHandler";
+import { requestLogger } from "./middlewares/requestLogger";
+import { logger } from "./utils/logger";
 
 const allowedOrigins = process.env.CORS_ORIGIN?.split(",") || [];
 
@@ -16,9 +18,11 @@ const corsOptions: CorsOptions = {
       return callback(null, true);
     }
 
-    return callback(
-      new Error(`CORS policy error: Origin '${origin}' not allowed`)
-    );
+    logger.warn("CORS Error", {
+      message: `Origin '${origin}' not allowed`,
+      allowedOrigins,
+    });
+    return callback(new Error(`CORS policy error: Origin '${origin}' not allowed`));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
@@ -28,9 +32,27 @@ const corsOptions: CorsOptions = {
 
 export const app: Express = express();
 
+// Request logging middleware (should be early in the middleware chain)
+app.use(requestLogger);
+
 app.use(cookieParser());
 app.use(cors(corsOptions));
 app.use(express.json());
+
+app.get("/", (_, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Welcome to HRSEO Backend API",
+    status: "Server is running",
+    version: "1.0.0",
+    endpoints: {
+      health: "/health",
+      api: "/api",
+      auth: "/api/auth",
+      user: "/api/user",
+    },
+  });
+});
 
 const apiVersion = "/api/";
 

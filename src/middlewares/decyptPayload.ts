@@ -2,11 +2,7 @@ import { decryptData } from "@/utils/encryptDecryptPayload";
 import { sendError } from "@/utils/response";
 import { type NextFunction, type Request, type Response } from "express";
 
-export const decryptPayload = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const decryptPayload = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { payload } = req.body;
     if (!payload) {
@@ -20,10 +16,6 @@ export const decryptPayload = async (
     req.body.payload = decryptPayload;
     next();
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };

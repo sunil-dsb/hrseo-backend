@@ -1,19 +1,12 @@
 import { type Request, type Response } from "express";
 import { sendError, sendSuccess } from "@/utils/response";
 import { hashPassword, verifyPassword } from "@/utils/passwordUtils";
-import {
-  extractIpAddress,
-  extractUserAgent,
-  parseTimeString,
-} from "@/utils/helperFunctions";
+import { extractIpAddress, extractUserAgent, parseTimeString } from "@/utils/helperFunctions";
 import { createToken } from "@/utils/tokenUtils";
 import { v4 as uuidv4 } from "uuid";
 import { prismaClient } from "@/lib/prismaClient";
 import { encryptData } from "@/utils/encryptDecryptPayload";
-import type {
-  UserGetPayload,
-  UserSelect,
-} from "prisma/generated/prisma/models";
+import type { UserGetPayload, UserSelect } from "prisma/generated/prisma/models";
 
 const userSelect = {
   id: true,
@@ -110,8 +103,7 @@ const checkUser = async (req: Request) => {
     return {
       success: false,
       code: 403,
-      error:
-        "This account is deleted. Please contact support for more information.",
+      error: "This account is deleted. Please contact support for more information.",
     };
   }
 
@@ -173,11 +165,7 @@ export const register = async (req: Request, res: Response) => {
 
     return sendSuccess(res, null, "Registered successfully");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
@@ -207,18 +195,14 @@ export const login = async (req: Request, res: Response) => {
       );
     }
     if (checkUser?.status === "DELETED") {
-      return {
-        success: false,
-        code: 403,
-        error:
-          "This account is deleted. Please contact support for more information.",
-      };
+      return sendError(
+        res,
+        403,
+        "This account is deleted. Please contact support for more information."
+      );
     }
 
-    const checkPassword = verifyPassword(
-      checkUser?.accounts?.[0]?.passwordHash || "",
-      password
-    );
+    const checkPassword = verifyPassword(checkUser?.accounts?.[0]?.passwordHash || "", password);
     if (!checkPassword) {
       return sendError(res, 401, "Invalid password");
     }
@@ -234,12 +218,8 @@ export const login = async (req: Request, res: Response) => {
       return sendError(res, 401, "Error while creating tokens");
     }
 
-    const accessExpiryMs = parseTimeString(
-      process.env.ACCESS_TOKEN_EXPIRY || "1h"
-    );
-    const refreshExpiryMs = parseTimeString(
-      process.env.REFRESH_TOKEN_EXPIRY || "30d"
-    );
+    const accessExpiryMs = parseTimeString(process.env.ACCESS_TOKEN_EXPIRY || "1h");
+    const refreshExpiryMs = parseTimeString(process.env.REFRESH_TOKEN_EXPIRY || "30d");
 
     const refreshTokenExpiry = new Date(Date.now() + refreshExpiryMs);
 
@@ -284,18 +264,13 @@ export const login = async (req: Request, res: Response) => {
 
     return sendSuccess(res, responsePayload, "Successfully logged in");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
 export const logout = async (req: Request, res: Response) => {
   try {
-    const { success: checkUserSuccess, error: checkUserError } =
-      await checkUser(req);
+    const { success: checkUserSuccess, error: checkUserError } = await checkUser(req);
     if (!checkUserSuccess) {
       return sendError(res, 400, checkUserError || "Unknown error");
     }
@@ -332,11 +307,7 @@ export const logout = async (req: Request, res: Response) => {
 
     return sendSuccess(res, null, "User logged out successfully");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
@@ -377,12 +348,8 @@ export const renewToken = async (req: Request, res: Response) => {
       return sendError(res, 401, "Session not found");
     }
 
-    const accessExpiryMs = parseTimeString(
-      process.env.ACCESS_TOKEN_EXPIRY || "1h"
-    );
-    const refreshExpiryMs = parseTimeString(
-      process.env.REFRESH_TOKEN_EXPIRY || "30d"
-    );
+    const accessExpiryMs = parseTimeString(process.env.ACCESS_TOKEN_EXPIRY || "1h");
+    const refreshExpiryMs = parseTimeString(process.env.REFRESH_TOKEN_EXPIRY || "30d");
 
     const refreshTokenExpiry = new Date(Date.now() + refreshExpiryMs);
 
@@ -421,11 +388,7 @@ export const renewToken = async (req: Request, res: Response) => {
 
     return sendSuccess(res, null, "Tokens renewed successfully");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
@@ -447,11 +410,7 @@ export const getAllSessions = async (req: Request, res: Response) => {
 
     return sendSuccess(res, sessions, "ok");
   } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return sendError(res, 400, error instanceof Error ? error.message : "Unknown error");
   }
 };
 
