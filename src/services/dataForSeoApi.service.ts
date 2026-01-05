@@ -14,7 +14,7 @@ export class DataForSeoApiService {
     this.authToken = Buffer.from(`${config.login}:${config.password}`).toString("base64");
 
     this.client = axios.create({
-      baseURL: "https://api.dataforseo.com",
+      baseURL: process.env.DATAFORSEO_URL,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${this.authToken}`,
