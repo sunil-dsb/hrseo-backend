@@ -33,3 +33,15 @@ export async function sendError(res: Response, code: number, message: string) {
   };
   return res.status(code || 500).json(response);
 }
+
+/**
+ * Send unencrypted success response (for public data like SEO APIs)
+ */
+export function sendSuccessUnencrypted<T>(res: Response, data?: T, message?: string) {
+  const response: ApiResponse<T> = {
+    success: true,
+    data: data ?? (null as any),
+    message,
+  };
+  return res.status(200).json(response);
+}

@@ -1,7 +1,6 @@
 import { login, logout, register, renewToken } from "@/controllers/auth.controller";
 import { checkAuthenticationRefresh } from "@/middlewares/checkAuthentication";
 import { Router } from "express";
-
 const router: Router = Router();
 
 router.post("/login", login);

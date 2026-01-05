@@ -50,6 +50,7 @@ app.get("/", (_, res) => {
       api: "/api",
       auth: "/api/auth",
       user: "/api/user",
+      seo: "/api/seo",
     },
   });
 });
