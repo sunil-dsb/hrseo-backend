@@ -5,6 +5,7 @@ import { createDataForSeoApiService } from "@/services/dataForSeoApi.service";
 import { createOpenAiApiService } from "@/services/openAiApi.service";
 import { logger } from "@/utils/logger";
 import type { SiteMetrics } from "@/types/moz-types";
+import type { BacklinksSummaryResponse } from "@/types/dataforseo-types";
 
 // Initialize services with environment variables
 // Moz API supports either direct token or accessId:secretKey
@@ -20,6 +21,7 @@ const mozService = createMozApiService(
 const dataForSeoService = createDataForSeoApiService({
   login: process.env.DATAFORSEO_LOGIN || "",
   password: process.env.DATAFORSEO_PASSWORD || "",
+  dataforseo_url: process.env.DATAFORSEO_URL || "",
 });
 
 const openAiService = createOpenAiApiService({
@@ -253,7 +255,7 @@ export const getDomainMetrics = async (req: Request, res: Response) => {
     });
 
     // 4. Get backlinks summary from DataForSEO
-    let backlinksSummary = null;
+    let backlinksSummary: BacklinksSummaryResponse | null = null;
     try {
       backlinksSummary = await dataForSeoService.getBacklinksSummary({
         target: formattedDomain,
@@ -300,9 +302,9 @@ export const getDomainMetrics = async (req: Request, res: Response) => {
       {
         domain: formattedDomain,
         siteMetrics: siteMetrics?.site_metrics || {},
-        distributions: distributions?.distributions || {},
+        distributions: distributions?.site_metrics_distributions || {},
         topReferringDomains:
-          topReferringDomains?.result?.linking_domains?.map((domain: any) => ({
+          topReferringDomains?.linking_domains?.map((domain: any) => ({
             domain: domain.site_metrics?.root_domain || "",
             da: domain.site_metrics?.domain_authority || 0,
             pa: domain.site_metrics?.page_authority || 0,

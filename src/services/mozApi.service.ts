@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from "axios";
 import { logger } from "@/utils/logger";
 import type {
   GetMultipleSiteMetricsResponse,
+  LinkingDomainsResponse,
   mozKeyWordDifficultyResponse,
   SiteMetrics,
   SiteMetricsDistributionResponse,
@@ -173,7 +174,7 @@ export class MozApiService {
     scope: "url" | "domain" | "subdomain";
     limit?: number;
     offset?: string;
-  }) {
+  }): Promise<LinkingDomainsResponse> {
     return this.makeRequest("data.site.linking-domain.list", {
       site_query: {
         query: params.query,

@@ -114,3 +114,32 @@ export type SiteMetricsDistributionResponse = {
     nofollow_root_domains_to_root_domain_by_spam_score: number[];
   };
 };
+
+export type LinkingDomainsResponse = {
+  site_query: {
+    query: string;
+    scope: "url" | "domain" | "subdomain";
+    original_site_query: {
+      query: string;
+      scope: "url" | "domain" | "subdomain";
+    };
+    site_query_suggestion: string | null;
+  };
+  offset: {
+    provided_token: string | null;
+    token: string;
+    limit: number;
+  };
+  options: {
+    sort: string;
+    filters: string[];
+  };
+  linking_domains: {
+    site_metrics: SiteMetrics;
+    link_propensity: number;
+    targeted_pages: number;
+    targeted_nofollow_pages: number;
+    targeted_redirect_pages: number;
+    targeted_deleted_pages: number;
+  }[];
+};

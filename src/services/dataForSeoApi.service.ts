@@ -1,10 +1,11 @@
 import axios, { type AxiosInstance } from "axios";
 import { logger } from "@/utils/logger";
-import type { SerpApiResponse } from "@/types/dataforseo-types";
+import type { BacklinksSummaryResponse, SerpApiResponse } from "@/types/dataforseo-types";
 
 interface DataForSeoApiConfig {
   login: string;
   password: string;
+  dataforseo_url: string;
 }
 
 export class DataForSeoApiService {
@@ -15,7 +16,7 @@ export class DataForSeoApiService {
     this.authToken = Buffer.from(`${config.login}:${config.password}`).toString("base64");
 
     this.client = axios.create({
-      baseURL: process.env.DATAFORSEO_URL,
+      baseURL: config.dataforseo_url,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${this.authToken}`,
@@ -70,7 +71,8 @@ export class DataForSeoApiService {
         },
       ]);
 
-      return response.data;
+      const result: BacklinksSummaryResponse = response.data;
+      return result;
     } catch (error: any) {
       logger.error("DataForSEO Backlinks Summary API Error", {
         error: error.message,
