@@ -1,5 +1,11 @@
 import axios, { type AxiosInstance } from "axios";
 import { logger } from "@/utils/logger";
+import type {
+  GetMultipleSiteMetricsResponse,
+  mozKeyWordDifficultyResponse,
+  SiteMetrics,
+  SiteMetricsDistributionResponse,
+} from "@/types/moz-types";
 
 interface MozApiConfig {
   accessId?: string;
@@ -79,7 +85,7 @@ export class MozApiService {
     locale: string;
     device?: "desktop" | "mobile";
     engine?: "google" | "bing";
-  }) {
+  }): Promise<mozKeyWordDifficultyResponse> {
     return this.makeRequest("data.keyword.metrics.difficulty.fetch", {
       serp_query: {
         keyword: params.keyword,
@@ -93,7 +99,10 @@ export class MozApiService {
   /**
    * Get site metrics for a single site
    */
-  async getSiteMetrics(params: { query: string; scope: "url" | "domain" | "subdomain" }) {
+  async getSiteMetrics(params: {
+    query: string;
+    scope: "url" | "domain" | "subdomain";
+  }): Promise<{ site_metrics: SiteMetrics }> {
     return this.makeRequest("data.site.metrics.fetch", {
       site_query: {
         query: params.query,
@@ -110,7 +119,7 @@ export class MozApiService {
       query: string;
       scope: "url" | "domain" | "subdomain";
     }>;
-  }) {
+  }): Promise<GetMultipleSiteMetricsResponse> {
     return this.makeRequest("data.site.metrics.fetch.multiple", {
       site_queries: params.site_queries,
     });
@@ -122,7 +131,7 @@ export class MozApiService {
   async getSiteMetricsDistributions(params: {
     query: string;
     scope: "url" | "domain" | "subdomain";
-  }) {
+  }): Promise<SiteMetricsDistributionResponse> {
     return this.makeRequest("data.site.metrics.distributions.fetch", {
       site_query: {
         query: params.query,

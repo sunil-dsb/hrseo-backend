@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
 import { logger } from "@/utils/logger";
+import type { SerpApiResponse } from "@/types/dataforseo-types";
 
 interface DataForSeoApiConfig {
   login: string;
@@ -31,7 +32,7 @@ export class DataForSeoApiService {
     location_code: number;
     language_code: string;
     device?: "desktop" | "mobile" | "tablet";
-  }) {
+  }): Promise<SerpApiResponse> {
     try {
       const response = await this.client.post("/v3/serp/google/organic/live/regular", [
         {

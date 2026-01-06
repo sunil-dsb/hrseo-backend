@@ -4,6 +4,7 @@ import { createMozApiService } from "@/services/mozApi.service";
 import { createDataForSeoApiService } from "@/services/dataForSeoApi.service";
 import { createOpenAiApiService } from "@/services/openAiApi.service";
 import { logger } from "@/utils/logger";
+import type { SiteMetrics } from "@/types/moz-types";
 
 // Initialize services with environment variables
 // Moz API supports either direct token or accessId:secretKey
@@ -42,6 +43,10 @@ export const getSerpCompetitors = async (req: Request, res: Response) => {
     }
 
     // 1. Get SERP results from DataForSEO
+    // Returns:
+    // - Top 10 ranking URLs → Used to identify real organic competitors
+    // - Page titles & descriptions → Used to infer search intent and content patterns
+    // - Ranking positions → Domain metrics, Backlink checks, Keyword difficulty estimation
     const serpResults = await dataForSeoService.getGoogleSerp({
       keyword,
       location_code: locationCodeGoogle,
@@ -59,6 +64,10 @@ export const getSerpCompetitors = async (req: Request, res: Response) => {
     const serpItems = serpResults.tasks[0].result[0].items;
 
     // 2. Get keyword difficulty from Moz
+    // Returns:
+    // - Difficulty score (0–100) → Used to classify ranking difficulty (easy 0–30 / medium 31–60 / hard 61–100)
+    // - Search volume → Used to prioritize keywords by traffic potential
+    // - Organic CTR → Used to estimate achievable organic traffic
     let keywordDifficulty = null;
     try {
       const locale = `${languageCode}-${countryIsoCode || "US"}`;
@@ -90,6 +99,11 @@ export const getSerpCompetitors = async (req: Request, res: Response) => {
     }
 
     // 3. Get site metrics for each SERP result
+    // Returns:
+    // - Domain Authority (DA, 0–100) → Used to compare overall domain strength against competitors (Higher = easier to rank)
+    // - Page Authority (PA, 0–100) → Used to evaluate how hard it is to outrank a specific page (Higher = easier to rank)
+    // - Root Domains to Root Domain (number of unique referring domains) → Used to assess backlink quality and site authority
+    // - Spam Score (0–17) → Used to avoid risky or low-quality domains (0–1	Very clean, 2–4	Low risk, 5–7	Medium risk, 8–11	High risk, 12–17	Very high risk)
     const siteQueries = serpItems.slice(0, 10).map((item: any) => ({
       query: item.url,
       scope: "url" as const,
@@ -114,7 +128,10 @@ export const getSerpCompetitors = async (req: Request, res: Response) => {
         pageAuthority: metrics?.page_authority || 0,
         rootDomains: metrics?.root_domains_to_root_domain || 0,
         spamScore: metrics?.spam_score || 0,
-        // Calculate CF and TF (simplified version - you may want to implement the full algorithm)
+        externalPagesToRootDomain: metrics?.external_pages_to_root_domain || 0,
+        // Calculate CF (Citation Flow) and TF (Trust Flow) (simplified version - you may want to implement the full algorithm)
+        // CF = Measures “popularity” of a page or domain based on how many backlinks it has.
+        // TF = Measures “trustworthiness” of a page or domain based on quality of backlinks.
         cf: calculateCF(metrics),
         tf: calculateTF(metrics),
       };
@@ -313,47 +330,76 @@ export const getDomainMetrics = async (req: Request, res: Response) => {
 function calculateCF(metrics: any): number {
   if (!metrics) return 0;
 
-  const CF_BASE = 14.0;
-  const CF_LOG_WEIGHT = 5.0;
-  const CF_RD_WEIGHT = 0.8;
-  const CF_DEPTH_BOOST = 0.32;
+  // Constants for scaling
+  const CF_BASE = 10; // base CF for any site
+  const CF_LOG_WEIGHT = 45; // main weight for log-scaled root domains
+  const CF_INDIRECT_BOOST = 0.25; // small boost for indirect root domains
+  const CF_VOLUME_WEIGHT = 0.2; // weight for external pages volume
 
-  const externalPages = Math.max(metrics.external_pages_to_page || 0, 1);
-  const referringDomains = Math.max(metrics.root_domains_to_page || 0, 1);
-  const indirectRefDomains = metrics.indirect_root_domains_to_page || 0;
-  const linkPropensity = Math.min(1.0, metrics.link_propensity || 0);
+  // Main metric: root domains linking to root domain
+  const rootDomains = Math.max(metrics.root_domains_to_root_domain || 0, 1);
 
-  const rawVolume = externalPages * linkPropensity;
-  const depthMultiplier = 1.0 + CF_DEPTH_BOOST * Math.log1p(indirectRefDomains);
-  const logVolume = Math.log1p(rawVolume) * depthMultiplier;
-  const logVolumeCompressed = Math.log1p(logVolume);
+  // Optional: external pages linking to root domain
+  const externalPages = Math.max(metrics.external_pages_to_root_domain || 0, 1);
 
-  const cf =
-    CF_BASE + CF_LOG_WEIGHT * logVolumeCompressed + CF_RD_WEIGHT * Math.log1p(referringDomains);
+  // Optional: indirect root domains
+  const indirectDomains = Math.max(metrics.indirect_root_domains_to_root_domain || 0, 0);
 
-  return Math.max(0, Math.min(100, Math.round(cf)));
+  // Logarithmic compression for huge numbers
+  const rootDomainsLog = Math.log1p(rootDomains);
+  const externalPagesLog = Math.log1p(externalPages) * CF_VOLUME_WEIGHT;
+  const indirectBoost = Math.log1p(indirectDomains) * CF_INDIRECT_BOOST;
+
+  // Combine factors
+  let cfRaw =
+    CF_BASE + CF_LOG_WEIGHT * Math.log1p(rootDomainsLog + externalPagesLog + indirectBoost);
+
+  // Cap between 0 and 100
+  const cf = Math.max(0, Math.min(100, Math.round(cfRaw)));
+
+  return cf;
 }
 
 function calculateTF(metrics: any): number {
   if (!metrics) return 0;
 
+  // Constants for scaling
   const TF_BASE = 8.5;
-  const TF_LOG_SCALING = 6.5;
   const TF_LOG_WEIGHT = 5.78;
-  const TF_PA_WEIGHT = 0.065;
-  const TF_SPAM_PENALTY_WEIGHT = 0.95;
-  const TF_SPAM_EXP = 1.35;
+  const TF_LOG_SCALING = 6.5;
+  const TF_PA_WEIGHT = 0.6; // page authority weight
+  const TF_DA_WEIGHT = 0.4; // domain authority weight
+  const TF_INDIRECT_BOOST = 0.2; // boost for indirect root domains
+  const TF_SPAM_EXP = 1.3; // spam exponent
 
+  // Core metrics
   const pageAuthority = metrics.page_authority || 0;
-  const spamScore = (metrics.spam_score || 0) / 100.0;
+  const domainAuthority = metrics.domain_authority || 0;
+  const rootDomains = Math.max(metrics.root_domains_to_root_domain || 0, 1);
+  const indirectDomains = Math.max(metrics.indirect_root_domains_to_root_domain || 0, 0);
+  const spamScore = metrics.spam_score || 0; // 0–17
 
-  const trustSeed = pageAuthority * TF_PA_WEIGHT;
-  const spamPenalty = 1.0 - TF_SPAM_PENALTY_WEIGHT * Math.pow(spamScore, TF_SPAM_EXP);
+  // Trust seed (page + domain authority)
+  const trustSeed = pageAuthority * TF_PA_WEIGHT + domainAuthority * TF_DA_WEIGHT;
 
-  const tfRaw = TF_BASE + TF_LOG_WEIGHT * Math.log1p(trustSeed * TF_LOG_SCALING);
-  const tf = tfRaw * spamPenalty;
+  // Root domain factor (number of linking domains)
+  const rootDomainFactor = Math.log1p(rootDomains);
 
-  return Math.max(0, Math.min(100, Math.round(tf)));
+  // Indirect domain boost
+  const indirectBoost = Math.log1p(indirectDomains) * TF_INDIRECT_BOOST;
+
+  // Spam penalty (sigmoid-like)
+  const spamPenalty = 1 / (1 + Math.pow(spamScore, TF_SPAM_EXP));
+
+  // Raw TF
+  const tfRaw =
+    TF_BASE +
+    TF_LOG_WEIGHT * Math.log1p(trustSeed * TF_LOG_SCALING + rootDomainFactor + indirectBoost);
+
+  // Apply spam penalty and cap
+  const tf = Math.max(0, Math.min(100, Math.round(tfRaw * spamPenalty)));
+
+  return tf;
 }
 
 function calculateKeywordDifficulty(competitors: any[]): number {
@@ -367,10 +413,14 @@ function calculateKeywordDifficulty(competitors: any[]): number {
     rd_factor: 0.1,
   };
 
+  // max root domains for normalization
+  const maxRD = Math.max(...competitors.map((c) => c.rootDomains));
+
   const scores = competitors.slice(0, 10).map((comp) => {
-    const rdFactor = Math.min(50, Math.log1p(comp.rootDomains) * 3);
+    const rdFactor = maxRD > 0 ? (Math.log1p(comp.rootDomains) / Math.log1p(maxRD)) * 50 : 0;
+
     return (
-      weights.tf * comp.cf +
+      weights.tf * comp.tf +
       weights.da * comp.domainAuthority +
       weights.cf * comp.cf +
       weights.pa * comp.pageAuthority +
@@ -379,7 +429,12 @@ function calculateKeywordDifficulty(competitors: any[]): number {
   });
 
   const avgStrength = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const kd = Math.max(0, Math.min(100, Math.round(1.55 * avgStrength - 5)));
+
+  // Sigmoid scaling for final KD (optional, smoother than linear)
+  const kd = Math.max(
+    0,
+    Math.min(100, Math.round(100 / (1 + Math.exp(-0.05 * (avgStrength - 50)))))
+  );
 
   return kd;
 }
