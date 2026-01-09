@@ -4,7 +4,6 @@ import { createMozApiService } from "@/services/mozApi.service";
 import { createDataForSeoApiService } from "@/services/dataForSeoApi.service";
 import { createOpenAiApiService } from "@/services/openAiApi.service";
 import { logger } from "@/utils/logger";
-import type { SiteMetrics } from "@/types/moz-types";
 import type { BacklinksSummaryResponse } from "@/types/dataforseo-types";
 
 // Initialize services with environment variables
@@ -36,13 +35,13 @@ export const getSerpCompetitors = async (req: Request, res: Response) => {
   try {
     const { keyword, locationCodeGoogle, languageCode, countryIsoCode, fallbackLocale } = req.body;
 
-    if (!keyword || !locationCodeGoogle || !languageCode) {
-      return sendError(
-        res,
-        400,
-        "Missing required fields: keyword, locationCodeGoogle, languageCode"
-      );
-    }
+    // if (!keyword || !locationCodeGoogle || !languageCode) {
+    //   return sendError(
+    //     res,
+    //     400,
+    //     "Missing required fields: keyword, locationCodeGoogle, languageCode"
+    //   );
+    // }
 
     // 1. Get SERP results from DataForSEO
     // Returns:
@@ -538,13 +537,13 @@ export const findOpportunities = async (req: Request, res: Response) => {
       googleLanguageName,
     } = req.body;
 
-    if (!niche || !googleLanguageCode || !googleLocationCode || !googleLanguageName) {
-      return sendError(
-        res,
-        400,
-        "Missing required fields: niche, googleLanguageCode, googleLocationCode, googleLanguageName"
-      );
-    }
+    // if (!niche || !googleLanguageCode || !googleLocationCode || !googleLanguageName) {
+    //   return sendError(
+    //     res,
+    //     400,
+    //     "Missing required fields: niche, googleLanguageCode, googleLocationCode, googleLanguageName"
+    //   );
+    // }
 
     // 1. Generate keywords using OpenAI
     let generatedKeywords = "";
@@ -620,7 +619,7 @@ export const findOpportunities = async (req: Request, res: Response) => {
 
       return annotations.concepts.some((concept: any) => concept.concept_group?.type === NON_BRAND);
     });
-
+    // console.log(JSON.stringify(keywordMetrics), allResults, filteredResults, '222222222222')
     // Sort by search volume and take top 100
     filteredResults.sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
     const top100 = filteredResults.slice(0, 100);
@@ -689,6 +688,253 @@ export const findOpportunities = async (req: Request, res: Response) => {
     );
   } catch (error: any) {
     logger.error("Opportunity Finder Error", { error: error.message });
+    return sendError(res, 500, error.message || "Failed to find opportunities");
+  }
+};
+
+/**
+ * Opportunity Finder - Generate and analyze keywords
+ * POST /api/seo/opportunity-finder
+ */
+export const findOpportunitiesSV = async (req: Request, res: Response) => {
+  try {
+    const {
+      niche,
+      subNiche,
+      businessModel,
+      googleLanguageCode,
+      googleLocationCode,
+      googleLanguageName,
+    } = req.body;
+
+    // if (!niche || !googleLanguageCode || !googleLocationCode || !googleLanguageName) {
+    //   return sendError(
+    //     res,
+    //     400,
+    //     "Missing required fields: niche, googleLanguageCode, googleLocationCode, googleLanguageName"
+    //   );
+    // }
+
+    // 1. Generate keywords using OpenAI
+    let generatedKeywords = "";
+    let totalTokens = 0;
+
+    try {
+      const openAiResponse = await openAiService.generateKeywords({
+        niche,
+        subNiche: subNiche || undefined,
+        businessModel: businessModel || "No Business Model",
+        languageName: googleLanguageName,
+        languageCode: googleLanguageCode,
+      });
+
+      generatedKeywords = openAiResponse?.choices?.[0]?.message?.content || "";
+      totalTokens = openAiResponse?.usage?.total_tokens || 0;
+    } catch (error: any) {
+      logger.error("OpenAI Keyword Generation Error", {
+        error: error.message,
+      });
+      return sendError(res, 500, `Failed to generate keywords: ${error.message}`);
+    }
+
+    if (!generatedKeywords) {
+      return sendError(res, 500, "No keywords generated");
+    }
+
+    // 2. Split and format keywords
+    const keywords = generatedKeywords
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+    if (keywords.length === 0) {
+      return sendError(res, 500, "No valid keywords found");
+    }
+
+    // 3. Get keyword metrics from DataForSEO
+    let keywordMetrics = null;
+    try {
+      // keywordMetrics = await dataForSeoService.getKeywordsForKeywords({
+      keywordMetrics = await dataForSeoService.getSearchVolumeForKeywords({
+        keywords,
+        location_code: googleLocationCode,
+        language_code: googleLanguageCode,
+        sort_by: "search_volume",
+      });
+    } catch (error: any) {
+      logger.error("DataForSEO Keywords API Error", {
+        error: error.message,
+      });
+      return sendError(res, 500, `Failed to get keyword metrics: ${error.message}`);
+    }
+
+    // 4. Process and filter results
+    let allResults: any[] = [];
+    allResults = keywordMetrics?.tasks?.[0]?.result;
+
+    // Sort by search volume and take top 100
+    allResults.sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
+    const top100 = allResults.slice(0, 100);
+
+    // 5. Process monthly search data
+    const MONTH_NAMES = [
+      "",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const processedKeywords = top100.map((result) => {
+      const monthYears: string[] = [];
+      const monthlySearchVolumes: number[] = [];
+
+      if (result.monthly_searches && result.monthly_searches.length > 0) {
+        for (const entry of result.monthly_searches) {
+          const monthName = MONTH_NAMES[entry.month] || "";
+          monthYears.push(`${monthName} ${entry.year}`);
+          monthlySearchVolumes.push(entry.search_volume || 0);
+        }
+      }
+
+      return {
+        keyword: result.keyword || "",
+        searchVolume: result.search_volume || 0,
+        cpc: result.cpc || 0,
+        competition: result.competition || 0,
+        competitionIndex: result.competition_index || 0,
+        lowTopOfPageBid: result.low_top_of_page_bid || 0,
+        highTopOfPageBid: result.high_top_of_page_bid || 0,
+        monthlySearches: result.monthly_searches || [],
+        monthYears,
+        monthlySearchVolumes,
+        keywordAnnotations: result.keyword_annotations || {},
+      };
+    });
+
+    return sendSuccessUnencrypted(
+      res,
+      {
+        generatedKeywords,
+        totalTokens,
+        keywords: processedKeywords,
+        totalKeywords: processedKeywords.length,
+        metadata: {
+          niche,
+          subNiche: subNiche || null,
+          businessModel: businessModel || "No Business Model",
+          languageCode: googleLanguageCode,
+          locationCode: googleLocationCode,
+          languageName: googleLanguageName,
+        },
+      },
+      "Opportunities found successfully"
+    );
+  } catch (error: any) {
+    logger.error("Opportunity Finder Error", { error: error.message });
+    return sendError(res, 500, error.message || "Failed to find opportunities");
+  }
+};
+
+/**
+ * Opportunity Finder (Labs) - Generate & analyze keyword opportunities
+ * POST /api/seo/opportunity-finder-lab
+ */
+export const findOpportunitiesLab = async (req: Request, res: Response) => {
+  try {
+    const { niche, googleLocationCode, googleLanguageName, limit } = req.body;
+    if (!niche) return sendError(res, 400, "Missing required fields: keyword");
+
+    // 1. Fetch keyword suggestions
+    let suggestionsResponse;
+    try {
+      suggestionsResponse = await dataForSeoService.getKeywordSuggestions({
+        keyword: niche,
+        location_code: googleLocationCode,
+        language_name: googleLanguageName,
+        include_serp_info: true,
+        include_seed_keyword: true,
+        limit: limit ?? 10,
+      });
+    } catch (error: any) {
+      logger.error("DataForSEO Labs Keyword Suggestions Error", { error: error.message });
+      return sendError(res, 500, `Failed to get keyword suggestions: ${error.message}`);
+    }
+
+    // 2. Extract all items
+    let allResults: any[] = [];
+    const tasks = suggestionsResponse.tasks?.[0] || [];
+    allResults = tasks?.result?.[0]?.items || [];
+    // Filter items with keyword_info
+    const validResults = allResults.filter((item) => item.keyword_info != null);
+    if (validResults.length === 0) return sendError(res, 404, "No keyword opportunities found");
+
+    // 3. Sort by search volume and take top 100
+    const top100 = validResults
+      .sort((a, b) => (b.keyword_info.search_volume || 0) - (a.keyword_info.search_volume || 0))
+      .slice(0, 100);
+
+    // 4. Process monthly search data
+    const MONTH_NAMES = [
+      "",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const processedKeywords = top100.map((item) => {
+      const monthlySearches = item.keyword_info?.monthly_searches || [];
+      const monthYears: string[] = [];
+      const monthlySearchVolumes: number[] = [];
+
+      for (const entry of monthlySearches) {
+        monthYears.push(`${MONTH_NAMES[entry.month]} ${entry.year}`);
+        monthlySearchVolumes.push(entry.search_volume || 0);
+      }
+
+      return {
+        keyword: item.keyword,
+        searchVolume: item.keyword_info?.search_volume || 0,
+        cpc: item.keyword_info?.cpc || 0,
+        competition: item.keyword_info?.competition || 0,
+        lowTopOfPageBid: item.keyword_info?.low_top_of_page_bid || 0,
+        highTopOfPageBid: item.keyword_info?.high_top_of_page_bid || 0,
+        monthlySearches,
+        monthYears,
+        monthlySearchVolumes,
+        keywordProperties: item.keyword_properties || {},
+      };
+    });
+
+    return sendSuccessUnencrypted(
+      res,
+      {
+        seedKeyword: niche,
+        keywords: processedKeywords,
+        totalKeywords: processedKeywords.length,
+        metadata: { locationCode: googleLocationCode, languageName: googleLanguageName },
+      },
+      "Keyword opportunities found successfully"
+    );
+  } catch (error: any) {
+    logger.error("Opportunity Finder Lab Error", { error: error.message });
     return sendError(res, 500, error.message || "Failed to find opportunities");
   }
 };

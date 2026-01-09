@@ -70,7 +70,7 @@ export class OpenAiApiService {
     languageName: string;
     languageCode: string;
   }) {
-    const systemPrompt = `Generate 20 seed keywords in ${params.languageName} for the following topic:
+    const systemPrompt = `Generate 10 seed keywords in ${params.languageName} for the following topic:
 
 Business Context: You are helping someone who works in ${params.businessModel} discover profitable niche opportunities related to ${params.niche}${params.subNiche ? ` and ${params.subNiche}` : ""}.
 
@@ -82,7 +82,7 @@ Conditions:
 • class it by order of relevance, more relevant first.
 • Return only a plain list in UTF-8 formatting, no numbering or explanations, split each keyword by a comma(,)
 
-Generate exactly 20 high-value consumer seed keywords.
+Generate exactly 10 high-value consumer seed keywords.
 NICHE: ${params.niche}
 ${params.subNiche ? `SUB-NICHE: ${params.subNiche}` : ""}
 LANGUAGE: ${params.languageName}
@@ -111,10 +111,11 @@ Rules – absolute zero tolerance:
 • Prioritize the highest real monetization potential for the selected business model
 • The first 5 MUST be the absolute biggest money keywords for this business model
 • Every keyword must be 100% usable as-is in DataForSEO, Ahrefs, Semrush, Moz or Google Keyword Planner
-• If you cannot find 20 perfect keywords, return fewer than 20 rather than lowering quality
+• If you cannot find 10 perfect keywords, return fewer than 10 rather than lowering quality
+• In any case do not return more then 10 keywords
 
 Output format – exactly this, nothing else:
-keyword1, keyword2, keyword3, keyword4, keyword5, keyword6, keyword7, keyword8, keyword9, keyword10, keyword11, keyword12, keyword13, keyword14, keyword15, keyword16, keyword17, keyword18, keyword19, keyword20`;
+keyword1, keyword2, keyword3, keyword4, keyword5, keyword6, keyword7, keyword8, keyword9, keyword10`;
 
     try {
       const response = await this.createChatCompletion({

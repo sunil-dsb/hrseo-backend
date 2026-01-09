@@ -177,6 +177,73 @@ export class DataForSeoApiService {
   }
 
   /**
+   * Get search volume (keyword suggestions with metrics)
+   */
+  async getSearchVolumeForKeywords(params: {
+    keywords: string[];
+    location_code?: number;
+    language_code?: string;
+    sort_by?: "relevance" | "search_volume";
+    include_serp_info?: boolean;
+  }) {
+    try {
+      const response = await this.client.post("/v3/keywords_data/google_ads/search_volume/live", [
+        {
+          keywords: params.keywords,
+          location_code: params.location_code,
+          language_code: params.language_code,
+          sort_by: params.sort_by || "relevance",
+          include_serp_info: params.include_serp_info,
+        },
+      ]);
+
+      return response.data;
+    } catch (error: any) {
+      logger.error("DataForSEO Search Volume API Error", {
+        error: error.message,
+        params,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get keyword suggestions - DataFoSeo lab APIs (keyword suggestions with metrics)
+   */
+  async getKeywordSuggestions(params: {
+    keyword: string;
+    location_code: number;
+    language_name: string;
+    include_serp_info?: boolean;
+    include_seed_keyword?: boolean;
+    limit?: number;
+  }) {
+    try {
+      const response = await this.client.post(
+        "/v3/dataforseo_labs/google/keyword_suggestions/live",
+        [
+          {
+            keyword: params.keyword,
+            location_code: params.location_code,
+            language_name: params.language_name,
+            include_serp_info: params.include_serp_info ?? true,
+            include_seed_keyword: params.include_seed_keyword ?? true,
+            limit: params.limit ?? 10,
+          },
+        ]
+      );
+
+      return response.data;
+    } catch (error: any) {
+      logger.error("DataForSEO Keyword Suggestions API Error", {
+        error: error.message,
+        params,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Get domain pages summary (top content pages)
    * Returns pages from a domain sorted by referring domains
    */

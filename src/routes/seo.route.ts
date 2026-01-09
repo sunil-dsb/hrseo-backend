@@ -5,6 +5,8 @@ import {
   getDomainMetrics,
   findOpportunities,
   getDomainMetricsAdvanced,
+  findOpportunitiesLab,
+  findOpportunitiesSV,
 } from "@/controllers/seo.controller";
 import { checkAuthentication } from "@/middlewares/checkAuthentication";
 
@@ -26,5 +28,7 @@ router.post("/domain-metrics-advanced", getDomainMetricsAdvanced);
 
 // Opportunity Finder
 router.post("/opportunity-finder", findOpportunities);
+router.post("/opportunity-finder-sv", findOpportunitiesSV);
+router.post("/opportunity-finder-lab", findOpportunitiesLab);
 
 export default router;
