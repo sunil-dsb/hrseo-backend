@@ -7,12 +7,14 @@ import {
   getDomainMetricsAdvanced,
   findOpportunitiesLab,
   findOpportunitiesSV,
+  refineKeywords,
 } from "@/controllers/seo.controller";
+
 import { checkAuthentication } from "@/middlewares/checkAuthentication";
 
 const router: Router = Router();
 
-router.use(checkAuthentication);
+// router.use(checkAuthentication);
 
 // SERP Competitors Analysis
 router.post("/serp-competitors", getSerpCompetitors);
@@ -30,5 +32,6 @@ router.post("/domain-metrics-advanced", getDomainMetricsAdvanced);
 router.post("/opportunity-finder", findOpportunities);
 router.post("/opportunity-finder-sv", findOpportunitiesSV);
 router.post("/opportunity-finder-lab", findOpportunitiesLab);
+router.post("/refine", refineKeywords);
 
 export default router;

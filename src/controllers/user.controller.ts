@@ -14,6 +14,11 @@ export const getSession = async (req: Request, res: Response) => {
         id: userId,
       },
       select: {
+        id: true,
+        name: true,
+        email: true,
+        avatarUrl: true,
+        status: true,
         role: {
           select: {
             name: true,

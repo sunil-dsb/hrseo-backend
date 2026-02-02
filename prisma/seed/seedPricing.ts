@@ -3,7 +3,7 @@ import { Prisma } from "../generated/prisma/client";
 
 const prisma = prismaClient;
 
-async function seedPlans() {
+export async function seedPricing() {
   console.log("Seeding pricing plans...");
 
   const plans = [
@@ -71,16 +71,3 @@ async function seedPlans() {
 
   console.log("Pricing plans seeded successfully!");
 }
-
-async function main() {
-  try {
-    await seedPlans();
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-main();

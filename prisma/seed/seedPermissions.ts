@@ -2,7 +2,7 @@ import { prismaClient } from "../../src/lib/prismaClient";
 
 const prisma = prismaClient;
 
-async function seedRolesModulesPermissions() {
+export async function seedPermissions() {
   console.log("Seeding roles, modules, and permissions...");
 
   const roles = ["admin", "moderator", "user"];
@@ -60,16 +60,3 @@ async function seedRolesModulesPermissions() {
 
   console.log("Roles, modules, and permissions seeded successfully!");
 }
-
-async function main() {
-  try {
-    await seedRolesModulesPermissions();
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-main();

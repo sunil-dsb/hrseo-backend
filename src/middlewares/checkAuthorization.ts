@@ -1,5 +1,4 @@
 import type { CheckUserType } from "@/controllers/auth.controller";
-import { prismaClient } from "@/lib/prismaClient";
 import { decryptData } from "@/utils/encryptDecryptPayload";
 import { sendError } from "@/utils/response";
 import { type NextFunction, type Request, type Response } from "express";
@@ -26,42 +25,27 @@ export const checkAuthorization =
         return sendError(res, 500, "Decryption failed");
       }
 
+      // Admin bypass - admins have full access
       if (userDataDecrypted?.role?.name === "admin") {
-        next();
-      } else {
-        const checkRole = await prismaClient?.role.findFirst({
-          where: {
-            name: userDataDecrypted?.role?.name,
-          },
-          select: {
-            permissions: {
-              select: {
-                id: true,
-                roleId: true,
-                moduleId: true,
-                canReadList: true,
-                canReadSingle: true,
-                canCreate: true,
-                canUpdate: true,
-                canDelete: true,
-                module: true,
-              },
-            },
-          },
-        });
-        if (!checkRole) {
-          return sendError(res, 403, "Not Authorized");
-        }
+        return next();
+      }
 
-        if (
-          checkRole?.permissions.some(
-            (permission) => permission.module?.name === module && permission[action] === true
-          )
-        ) {
-          next();
-        } else {
-          return sendError(res, 403, "Not Authorized");
-        }
+      // Check permissions from the cached user data (no database call needed)
+      const permissions = userDataDecrypted?.role?.permissions;
+
+      if (!permissions || permissions.length === 0) {
+        return sendError(res, 403, "Not Authorized");
+      }
+
+      // Check if user has the required permission for the specified module and action
+      const hasPermission = permissions.some(
+        (permission) => permission.module?.name === module && permission[action] === true
+      );
+
+      if (hasPermission) {
+        return next();
+      } else {
+        return sendError(res, 403, "Not Authorized");
       }
     } catch (error) {
       return sendError(res, 401, "Unauthorized");

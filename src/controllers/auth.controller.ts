@@ -1,9 +1,8 @@
 import { type Request, type Response } from "express";
 import { sendError, sendSuccess } from "@/utils/response";
 import { hashPassword, verifyPassword } from "@/utils/passwordUtils";
-import { extractIpAddress, extractUserAgent, parseTimeString } from "@/utils/helperFunctions";
+import { parseTimeString } from "@/utils/helperFunctions";
 import { createToken } from "@/utils/tokenUtils";
-import { v4 as uuidv4 } from "uuid";
 import { prismaClient } from "@/lib/prismaClient";
 import { encryptData } from "@/utils/encryptDecryptPayload";
 import type { UserGetPayload, UserSelect } from "prisma/generated/prisma/models";
@@ -15,11 +14,7 @@ const userSelect = {
   name: true,
   avatarUrl: true,
   status: true,
-  accounts: {
-    where: {
-      provider: "EMAIL",
-    },
-  },
+  accounts: true,
   role: {
     select: {
       name: true,
@@ -141,10 +136,8 @@ export const register = async (req: Request, res: Response) => {
       return sendError(res, 404, "Role not found");
     }
 
-    const uniqueUserId = uuidv4();
     const response = await prismaClient?.user?.create({
       data: {
-        id: uniqueUserId,
         email,
         name,
         avatarUrl,

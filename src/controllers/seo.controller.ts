@@ -1041,3 +1041,80 @@ export const getDomainMetricsAdvanced = async (req: Request, res: Response) => {
     return sendError(res, 500, error.message || "Failed to retrieve domain metrics advanced data");
   }
 };
+
+/**
+ * Refine Keywords - Get metrics for a specific list of keywords
+ * POST /api/seo/refine
+ */
+export const refineKeywords = async (req: Request, res: Response) => {
+  try {
+    const { keywords, googleLocationCode, googleLanguageCode } = req.body;
+
+    if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+      return sendError(res, 400, "Keywords array is required");
+    }
+
+    // Get keyword metrics from DataForSEO
+    const keywordMetrics = await dataForSeoService.getSearchVolumeForKeywords({
+      keywords,
+      location_code: googleLocationCode,
+      language_code: googleLanguageCode,
+    });
+
+    // Process results
+    const results = keywordMetrics?.tasks?.[0]?.result || [];
+
+    const MONTH_NAMES = [
+      "",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const processedKeywords = results.map((result: any) => {
+      const monthYears: string[] = [];
+      const monthlySearchVolumes: number[] = [];
+
+      if (result.monthly_searches && result.monthly_searches.length > 0) {
+        for (const entry of result.monthly_searches) {
+          monthYears.push(`${MONTH_NAMES[entry.month]} ${entry.year}`);
+          monthlySearchVolumes.push(entry.search_volume || 0);
+        }
+      }
+
+      return {
+        keyword: result.keyword || "",
+        searchVolume: result.search_volume || 0,
+        cpc: result.cpc || 0,
+        competition: result.competition || 0,
+        competitionIndex: result.competition_index || 0,
+        lowTopOfPageBid: result.low_top_of_page_bid || 0,
+        highTopOfPageBid: result.high_top_of_page_bid || 0,
+        monthlySearches: result.monthly_searches || [],
+        monthYears,
+        monthlySearchVolumes,
+      };
+    });
+
+    return sendSuccessUnencrypted(
+      res,
+      {
+        keywords: processedKeywords,
+        totalKeywords: processedKeywords.length,
+      },
+      "Keywords refined successfully"
+    );
+  } catch (error: any) {
+    logger.error("Refine Keywords Error", { error: error.message });
+    return sendError(res, 500, error.message || "Failed to refine keywords");
+  }
+};
